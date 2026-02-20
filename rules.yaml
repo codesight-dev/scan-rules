@@ -1,0 +1,294 @@
+# CodeSight shared security & quality rules
+# Version: 0.1
+# Used by: Meri's scanner (audit/scanner.py), Opus-Luka's PR bot
+
+rules:
+
+  # --- SECRETS ---
+
+  - id: SEC001
+    severity: critical
+    category: secrets
+    pattern: "(?i)(api[_-]?key|apikey)\\s*[=:]\\s*[\"']?[a-zA-Z0-9_\\-]{20,}"
+    languages: [all]
+    title: API key in source code
+    description: Potential API key found hardcoded in source.
+    recommendation: Move secrets to environment variables or a secret manager.
+
+  - id: SEC002
+    severity: critical
+    category: secrets
+    pattern: "(?i)(secret|password|passwd|pwd)\\s*[=:]\\s*[\"'][^\"']{8,}"
+    languages: [all]
+    title: Hardcoded secret or password
+    description: A password or secret appears to be hardcoded.
+    recommendation: Use environment variables, vault, or secret manager.
+
+  - id: SEC003
+    severity: critical
+    category: secrets
+    pattern: "AKIA[0-9A-Z]{16}"
+    languages: [all]
+    title: AWS Access Key ID
+    description: AWS access key found in source code.
+    recommendation: Rotate the key immediately and use IAM roles or environment variables.
+
+  - id: SEC004
+    severity: critical
+    category: secrets
+    pattern: "ghp_[a-zA-Z0-9]{36}"
+    languages: [all]
+    title: GitHub personal access token
+    description: GitHub PAT found in source code.
+    recommendation: Revoke the token and use environment variables or GitHub Apps.
+
+  - id: SEC005
+    severity: critical
+    category: secrets
+    pattern: "sk-[a-zA-Z0-9]{20,}"
+    languages: [all]
+    title: API key (OpenAI/Anthropic pattern)
+    description: Potential AI service API key found.
+    recommendation: Revoke and rotate. Store in environment variables.
+
+  - id: SEC006
+    severity: critical
+    category: secrets
+    pattern: "-----BEGIN (RSA |EC |DSA )?PRIVATE KEY-----"
+    languages: [all]
+    title: Private key in source
+    description: A private key is committed to the repository.
+    recommendation: Remove from repo, rotate the key, add to .gitignore.
+
+  - id: SEC007
+    severity: high
+    category: secrets
+    pattern: "(?i)(database_url|db_url|mongo_uri|redis_url)\\s*[=:]\\s*[\"']?[a-z]+://"
+    languages: [all]
+    title: Database connection string
+    description: Database URL with potential credentials found.
+    recommendation: Use environment variables for connection strings.
+
+  - id: SEC008
+    severity: critical
+    category: secrets
+    pattern: "(?i)bearer\\s+[a-zA-Z0-9_\\-\\.]{20,}"
+    languages: [all]
+    title: Bearer token in source
+    description: Authentication bearer token found hardcoded.
+    recommendation: Move to environment variables or secret manager.
+
+  # --- INJECTION ---
+
+  - id: INJ001
+    severity: high
+    category: injection
+    pattern: "subprocess\\.(call|run|Popen)\\(.*shell\\s*=\\s*True"
+    languages: [python]
+    title: Shell injection risk (shell=True)
+    description: subprocess with shell=True can execute arbitrary commands.
+    recommendation: Use shell=False (default) and pass arguments as a list.
+
+  - id: INJ002
+    severity: high
+    category: injection
+    pattern: "os\\.system\\("
+    languages: [python]
+    title: Shell injection risk (os.system)
+    description: os.system passes commands to the shell, enabling injection.
+    recommendation: Use subprocess.run() with shell=False instead.
+
+  - id: INJ003
+    severity: high
+    category: injection
+    pattern: "eval\\("
+    languages: [python, javascript]
+    title: Code injection risk (eval)
+    description: eval() executes arbitrary code and should be avoided.
+    recommendation: Use safer alternatives (json.loads, ast.literal_eval, etc).
+
+  - id: INJ004
+    severity: high
+    category: injection
+    pattern: "exec\\("
+    languages: [python]
+    title: Code injection risk (exec)
+    description: exec() executes arbitrary code strings.
+    recommendation: Avoid exec(). Refactor to use explicit function calls.
+
+  - id: INJ005
+    severity: high
+    category: injection
+    pattern: "\\.format\\(.*\\).*(?:SELECT|INSERT|UPDATE|DELETE)"
+    languages: [python]
+    title: SQL injection via string formatting
+    description: SQL query built with .format() is vulnerable to injection.
+    recommendation: Use parameterized queries with placeholders.
+
+  - id: INJ006
+    severity: high
+    category: injection
+    pattern: "f[\"'].*(?:SELECT|INSERT|UPDATE|DELETE).*\\{"
+    languages: [python]
+    title: SQL injection via f-string
+    description: SQL query built with f-string is vulnerable to injection.
+    recommendation: Use parameterized queries with placeholders.
+
+  - id: INJ007
+    severity: high
+    category: injection
+    pattern: "innerHTML\\s*[+=]"
+    languages: [javascript, html]
+    title: Potential XSS via innerHTML
+    description: Setting innerHTML with unsanitized data enables XSS attacks.
+    recommendation: Use textContent, or sanitize input with DOMPurify.
+
+  - id: INJ008
+    severity: high
+    category: injection
+    pattern: "document\\.write\\("
+    languages: [javascript, html]
+    title: Potential XSS via document.write
+    description: document.write can inject arbitrary HTML/scripts.
+    recommendation: Use DOM manipulation methods instead.
+
+  - id: INJ009
+    severity: medium
+    category: injection
+    pattern: "dangerouslySetInnerHTML"
+    languages: [javascript]
+    title: React dangerouslySetInnerHTML
+    description: Bypasses React XSS protection. Review for user input.
+    recommendation: Sanitize content with DOMPurify before rendering.
+
+  - id: INJ010
+    severity: high
+    category: injection
+    pattern: "__import__\\("
+    languages: [python]
+    title: Dynamic import
+    description: Dynamic imports can load arbitrary modules.
+    recommendation: Use explicit imports. Validate input if dynamic import is required.
+
+  # --- CRYPTO ---
+
+  - id: CRY001
+    severity: medium
+    category: crypto
+    pattern: "(?i)(md5|sha1)\\s*\\("
+    languages: [all]
+    title: Weak hash algorithm (MD5/SHA1)
+    description: MD5 and SHA1 are cryptographically broken for security use.
+    recommendation: Use SHA-256 or better for security-sensitive hashing.
+
+  - id: CRY002
+    severity: medium
+    category: crypto
+    pattern: "(?i)\\bDES\\b|\\bRC4\\b|\\bBlowfish\\b"
+    languages: [all]
+    title: Weak or deprecated cipher
+    description: DES, RC4, and Blowfish are deprecated and insecure.
+    recommendation: Use AES-256-GCM or ChaCha20-Poly1305.
+
+  - id: CRY003
+    severity: high
+    category: crypto
+    pattern: "verify\\s*=\\s*False"
+    languages: [python]
+    title: SSL verification disabled
+    description: Disabling SSL verification allows MITM attacks.
+    recommendation: Enable SSL verification. Fix certificate issues instead.
+
+  - id: CRY004
+    severity: medium
+    category: crypto
+    pattern: "(?i)random\\.random\\(\\)|Math\\.random\\(\\)"
+    languages: [python, javascript]
+    title: Non-cryptographic RNG
+    description: random.random()/Math.random() are not suitable for security.
+    recommendation: Use secrets module (Python) or crypto.getRandomValues() (JS).
+
+  # --- CONFIG ---
+
+  - id: CFG001
+    severity: medium
+    category: config
+    pattern: "DEBUG\\s*=\\s*True"
+    languages: [python]
+    title: Debug mode enabled
+    description: Debug mode exposes detailed error information.
+    recommendation: Disable debug mode in production.
+
+  - id: CFG002
+    severity: medium
+    category: config
+    pattern: "ALLOWED_HOSTS\\s*=\\s*\\[\\s*[\"']?\\*"
+    languages: [python]
+    title: Wildcard allowed hosts
+    description: Allowing all hosts enables host header attacks.
+    recommendation: Specify exact allowed hostnames.
+
+  - id: CFG003
+    severity: medium
+    category: config
+    pattern: "(?i)cors.*origin.*\\*"
+    languages: [all]
+    title: CORS allows all origins
+    description: Wildcard CORS policy allows any website to make requests.
+    recommendation: Restrict CORS to specific trusted origins.
+
+  - id: CFG004
+    severity: low
+    category: config
+    pattern: "0\\.0\\.0\\.0"
+    languages: [all]
+    title: Binding to all interfaces
+    description: Listening on 0.0.0.0 exposes the service to all network interfaces.
+    recommendation: Bind to specific interface (127.0.0.1 for local only).
+
+  # --- CODE QUALITY ---
+
+  - id: QUA001
+    severity: low
+    category: code_quality
+    pattern: "except\\s*:"
+    languages: [python]
+    title: Bare except clause
+    description: Catching all exceptions silently hides bugs.
+    recommendation: Catch specific exceptions (except ValueError, etc).
+
+  - id: QUA002
+    severity: low
+    category: code_quality
+    pattern: "(?i)\\bprint\\s*\\(|console\\.log\\("
+    languages: [python, javascript]
+    title: Debug print/console.log in code
+    description: Debug output left in production code.
+    recommendation: Use proper logging framework instead.
+
+  - id: QUA003
+    severity: info
+    category: code_quality
+    pattern: "(?i)(TODO|FIXME|HACK|XXX|TEMP)\\b"
+    languages: [all]
+    title: TODO/FIXME marker
+    description: Unresolved TODO or FIXME in code.
+    recommendation: Address or track in issue tracker.
+
+  - id: QUA004
+    severity: low
+    category: code_quality
+    pattern: "\\bvar\\s+"
+    languages: [javascript]
+    title: var usage in JavaScript
+    description: var has function scope and can cause bugs.
+    recommendation: Replace var with let or const.
+
+  - id: QUA005
+    severity: low
+    category: code_quality
+    pattern: ":\\s*any\\b"
+    languages: [typescript]
+    title: TypeScript any type
+    description: Using any defeats type safety.
+    recommendation: Use specific types or unknown.
