@@ -1,6 +1,6 @@
 # CodeSight shared security & quality rules
 # Version: 0.1
-# Used by: Meri's scanner (audit/scanner.py), Opus-Luka's PR bot
+# Used by: CodeSight scanner and PR review bot
 
 rules:
 
